@@ -83,6 +83,14 @@ export default async function handler(req, res) {
         const f = await setGenerationFailedRefund(g.id, "kie.ai gagal membuat lagu (kredit dikembalikan)");
         return res.status(200).json({ generation: parseGen(f.gen), refunded: f.refunded });
       }
+      // Kalau kie.ai sudah memberi URL audio (mis. variasi pertama jadi dan
+      // bisa diputar di website kie.ai) meski label statusnya belum success,
+      // tampilkan yang sudah ada daripada menunggu label itu selamanya.
+      const partial = extractAudioUrls(st.result, st.raw);
+      if (partial.length) {
+        const done = await setGenerationDone(g.id, partial);
+        return res.status(200).json({ generation: parseGen(done), partial: true });
+      }
       return res.status(200).json({ generation: parseGen(g), kie_state: state });
     }
     if (req.method === "GET" && action === "buy-status") {
