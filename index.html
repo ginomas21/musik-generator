@@ -177,7 +177,10 @@ async function periksaGen(id, btn) {
       notice("Masih dibuat di mesin musik (status mesin: " + (s.kie_state || "memproses") + "), coba periksa lagi sebentar lagi.", "warn");
       document.querySelectorAll("[data-gid]").forEach(b => { if (b.dataset.gid === String(id)) b.textContent = "Status mesin: " + (s.kie_state || "memproses"); });
     }
-  } catch (e) { notice("Gagal memeriksa status: " + e.message); }
+  } catch (e) {
+    notice("Gagal memeriksa status: " + e.message);
+    if (btn) btn.textContent = "Error: " + String(e.message).slice(0, 80);
+  }
   if (btn) btn.disabled = false;
 }
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
@@ -287,7 +290,7 @@ $("buatBtn").onclick = async () => {
         genErr++;
         if (genErr >= 5) {
           clearInterval(genPoll);
-          $("genStatus").textContent = "Pemeriksaan otomatis berhenti setelah 5 kali gagal. Tekan Periksa status di riwayat untuk memeriksa manual.";
+          $("genStatus").textContent = "Pemeriksaan otomatis berhenti setelah 5 kali gagal (terakhir: " + e.message + "). Tekan Periksa status di riwayat untuk memeriksa manual.";
           await refreshRiwayat();
         } else {
           $("genStatus").textContent = "Gagal memeriksa status (" + genErr + "x): " + e.message + " — mencoba lagi…";
