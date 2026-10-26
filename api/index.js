@@ -70,7 +70,7 @@ export default async function handler(req, res) {
       let st;
       try { st = await getTaskStatus(g.task_id); } catch (e) { return bad(res, 502, "Gagal memeriksa ke kie.ai: " + e.message); }
       const state = st.state.toLowerCase();
-      if (state === "success" || state === "succeed") {
+      if (state.includes("success") || state.includes("succeed") || state === "completed" || state === "done") {
         const urls = extractAudioUrls(st.result, st.raw);
         if (!urls.length) {
           const f = await setGenerationFailedRefund(g.id, "kie.ai tidak mengembalikan URL audio");
