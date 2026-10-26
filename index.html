@@ -136,7 +136,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-let mode = "sederhana", me = null, genPoll = null, buyPoll = null, buyOrder = null, buyLeft = 0, buyTimer = null;
+let mode = "sederhana", me = null, genPoll = null, genErr = 0, buyPoll = null, buyOrder = null, buyLeft = 0, buyTimer = null;
 
 function notice(html, cls) {
   $("notice").innerHTML = html ? `<div class="${cls||"warn"}">${html}</div>` : "";
@@ -162,9 +162,20 @@ function songHtml(g) {
   } else if (g.status === "failed") {
     h += `<p class="muted">Gagal dibuat — 1 kredit dikembalikan. ${esc(g.error || "")}</p>`;
   } else {
-    h += `<p class="muted">Masih dibuat… halaman ini memeriksa otomatis.</p>`;
+    h += `<p class="muted">Masih dibuat…</p><button class="btn-gray" onclick="periksaGen('${esc(g.id)}', this)">Periksa status</button>`;
   }
   return h + "</div>";
+}
+async function periksaGen(id, btn) {
+  if (btn) btn.disabled = true;
+  try {
+    const s = await api("gen-status?id=" + encodeURIComponent(id));
+    await refreshRiwayat();
+    if (s.generation.status === "done") notice("Lagu jadi! Putar atau unduh di riwayat (unduh segera, file hanya 14 hari).", "ok");
+    else if (s.generation.status === "failed") notice("Gagal dibuat, 1 kredit dikembalikan.", "warn");
+    else notice("Masih dibuat di mesin musik, coba periksa lagi sebentar lagi.", "warn");
+  } catch (e) { notice("Gagal memeriksa status: " + e.message); }
+  if (btn) btn.disabled = false;
 }
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
@@ -253,6 +264,7 @@ $("buatBtn").onclick = async () => {
     await refreshMe();
     const gid = d.generation.id;
     clearInterval(genPoll);
+    genErr = 0;
     genPoll = setInterval(async () => {
       try {
         const s = await api("gen-status?id=" + encodeURIComponent(gid));
@@ -268,7 +280,16 @@ $("buatBtn").onclick = async () => {
         } else {
           $("genStatus").textContent = "Status mesin: " + (s.kie_state || s.generation.status) + "…";
         }
-      } catch (e) { clearInterval(genPoll); $("genStatus").textContent = "Gagal memeriksa status: " + e.message; }
+      } catch (e) {
+        genErr++;
+        if (genErr >= 5) {
+          clearInterval(genPoll);
+          $("genStatus").textContent = "Pemeriksaan otomatis berhenti setelah 5 kali gagal. Tekan Periksa status di riwayat untuk memeriksa manual.";
+          await refreshRiwayat();
+        } else {
+          $("genStatus").textContent = "Gagal memeriksa status (" + genErr + "x): " + e.message + " — mencoba lagi…";
+        }
+      }
     }, 10000);
   } catch (e) {
     $("genStatus").textContent = e.message;
