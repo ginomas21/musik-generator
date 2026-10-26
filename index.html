@@ -162,7 +162,7 @@ function songHtml(g) {
   } else if (g.status === "failed") {
     h += `<p class="muted">Gagal dibuat — 1 kredit dikembalikan. ${esc(g.error || "")}</p>`;
   } else {
-    h += `<p class="muted">Masih dibuat…</p><button class="btn-gray" onclick="periksaGen('${esc(g.id)}', this)">Periksa status</button>`;
+    h += `<p class="muted">Masih dibuat…</p><button class="btn-gray" data-gid="${esc(g.id)}" onclick="periksaGen('${esc(g.id)}', this)">Periksa status</button>`;
   }
   return h + "</div>";
 }
@@ -173,7 +173,10 @@ async function periksaGen(id, btn) {
     await refreshRiwayat();
     if (s.generation.status === "done") notice("Lagu jadi! Putar atau unduh di riwayat (unduh segera, file hanya 14 hari).", "ok");
     else if (s.generation.status === "failed") notice("Gagal dibuat, 1 kredit dikembalikan.", "warn");
-    else notice("Masih dibuat di mesin musik (status mesin: " + (s.kie_state || "memproses") + "), coba periksa lagi sebentar lagi.", "warn");
+    else {
+      notice("Masih dibuat di mesin musik (status mesin: " + (s.kie_state || "memproses") + "), coba periksa lagi sebentar lagi.", "warn");
+      document.querySelectorAll("[data-gid]").forEach(b => { if (b.dataset.gid === String(id)) b.textContent = "Status mesin: " + (s.kie_state || "memproses"); });
+    }
   } catch (e) { notice("Gagal memeriksa status: " + e.message); }
   if (btn) btn.disabled = false;
 }
