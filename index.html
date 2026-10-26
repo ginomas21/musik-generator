@@ -173,7 +173,7 @@ async function periksaGen(id, btn) {
     await refreshRiwayat();
     if (s.generation.status === "done") notice("Lagu jadi! Putar atau unduh di riwayat (unduh segera, file hanya 14 hari).", "ok");
     else if (s.generation.status === "failed") notice("Gagal dibuat, 1 kredit dikembalikan.", "warn");
-    else notice("Masih dibuat di mesin musik, coba periksa lagi sebentar lagi.", "warn");
+    else notice("Masih dibuat di mesin musik (status mesin: " + (s.kie_state || "memproses") + "), coba periksa lagi sebentar lagi.", "warn");
   } catch (e) { notice("Gagal memeriksa status: " + e.message); }
   if (btn) btn.disabled = false;
 }
@@ -338,6 +338,7 @@ $("qrCancel").onclick = async () => {
   $("qrModal").style.display = "none";
 };
 
+document.addEventListener("visibilitychange", () => { if (!document.hidden && me) refreshMe(); });
 refreshPacks();
 refreshMe().then(refreshRiwayat);
 </script>

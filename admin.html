@@ -88,10 +88,13 @@ async function api(action, body, method) {
 }
 async function loadAll() {
   const st = await api("admin-stats");
+  const kieNum = st.kie_credit && st.kie_credit.remaining != null ? st.kie_credit.remaining : "–";
+  const kieTxt = !st.kie_credit ? "kie.ai belum aktif" : (st.kie_credit.remaining != null ? "kredit kie.ai tersisa" : (st.kie_credit.raw ? "format tak dikenal: " + st.kie_credit.raw : "kie.ai: " + (st.kie_credit.error || "tidak diketahui")));
   $("stats").innerHTML =
     `<div><div class="stat">${st.users.total}</div><span class="muted">user<br>${st.users.credits_in_wallets} kredit beredar</span></div>` +
     `<div><div class="stat">${fmtRp(st.orders.revenue)}</div><span class="muted">pendapatan<br>${st.orders.paid}/${st.orders.total} pesanan lunas</span></div>` +
-    `<div><div class="stat">${st.generations.done}</div><span class="muted">lagu jadi<br>${st.generations.generating} diproses, ${st.generations.failed} gagal</span></div>`;
+    `<div><div class="stat">${st.generations.done}</div><span class="muted">lagu jadi<br>${st.generations.generating} diproses, ${st.generations.failed} gagal</span></div>` +
+    `<div><div class="stat">${kieNum}</div><span class="muted">${esc(kieTxt)}</span></div>`;
   const o = await api("admin-orders");
   $("ordersTbl").innerHTML = "<tr><th>ID</th><th>User</th><th>Paket</th><th>Nominal</th><th>Status</th><th>Waktu</th></tr>" +
     o.orders.map(x => `<tr><td>${esc(x.id)}</td><td>${esc(x.user_email || x.user_id)}</td><td>${esc(x.pack)} (${x.credits})</td><td>${fmtRp(x.amount)}</td><td>${esc(x.status)}</td><td>${esc(new Date(x.created_at).toLocaleString("id-ID"))}</td></tr>`).join("");

@@ -10,7 +10,7 @@ import { readJson, bad, dbDown } from "../lib/http.js";
 import { hashPassword, verifyPassword, newToken, expiryHours, userCookie, adminCookie, clearUserCookie, clearAdminCookie, readUserToken, readAdminToken, checkAdminKey } from "../lib/auth.js";
 import { createUser, getUserByEmail, getUserById, publicUser, deductCredit, addCredits, createSession, getSession, deleteSession, nextOrderId, createCreditOrder, getCreditOrder, setOrderTxid, settleOrderPaid, setOrderStatus, listOrders, createGeneration, getGeneration, listGenerations, listAllGenerations, setGenerationDone, setGenerationFailedRefund, getStats } from "../lib/db.js";
 import { PACKS, CREDIT_PER_SONG, getPack } from "../lib/packs.js";
-import { kieConfigured, createMusicTask, getTaskStatus, extractAudioUrls } from "../lib/kie.js";
+import { kieConfigured, createMusicTask, getTaskStatus, extractAudioUrls, getKieCredit } from "../lib/kie.js";
 import { agConfigured, agCreate, agStatus, agCancel, INVOICE_TIMEOUT_MS, AG_MAX_AMOUNT } from "../lib/autogopay.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -67,7 +67,8 @@ export default async function handler(req, res) {
       if (!g || g.user_id !== u.id) return bad(res, 404, "Lagu tidak ditemukan");
       if (g.status === "done" || g.status === "failed") return res.status(200).json({ generation: parseGen(g) });
       if (!kieConfigured()) return bad(res, 503, "Mesin musik belum aktif");
-      const st = await getTaskStatus(g.task_id);
+      let st;
+      try { st = await getTaskStatus(g.task_id); } catch (e) { return bad(res, 502, "Gagal memeriksa ke kie.ai: " + e.message); }
       const state = st.state.toLowerCase();
       if (state === "success" || state === "succeed") {
         const urls = extractAudioUrls(st.result, st.raw);
@@ -78,7 +79,7 @@ export default async function handler(req, res) {
         const done = await setGenerationDone(g.id, urls);
         return res.status(200).json({ generation: parseGen(done) });
       }
-      if (state === "fail" || state === "failed") {
+      if (state === "fail" || state === "failed" || state.includes("fail") || state.includes("error") || state.includes("timeout") || state.includes("cancel")) {
         const f = await setGenerationFailedRefund(g.id, "kie.ai gagal membuat lagu (kredit dikembalikan)");
         return res.status(200).json({ generation: parseGen(f.gen), refunded: f.refunded });
       }
@@ -110,7 +111,12 @@ export default async function handler(req, res) {
     // ---------- GET admin ----------
     if (req.method === "GET" && action === "admin-stats") {
       if (!(await isAdminReq(req))) return bad(res, 401, "Belum login admin");
-      return res.status(200).json(await getStats());
+      const stats = await getStats();
+      let kie_credit = null;
+      if (kieConfigured()) {
+        try { kie_credit = await getKieCredit(); } catch (e) { kie_credit = { error: e.message }; }
+      }
+      return res.status(200).json({ ...stats, kie_credit });
     }
     if (req.method === "GET" && action === "admin-orders") {
       if (!(await isAdminReq(req))) return bad(res, 401, "Belum login admin");
