@@ -142,7 +142,9 @@ function notice(html, cls) {
   $("notice").innerHTML = html ? `<div class="${cls||"warn"}">${html}</div>` : "";
 }
 async function api(action, body, method) {
-  const r = await fetch("/api?action=" + action, {
+  const q = action.indexOf("?");
+  const url = q < 0 ? "/api?action=" + encodeURIComponent(action) : "/api?action=" + encodeURIComponent(action.slice(0, q)) + "&" + action.slice(q + 1);
+  const r = await fetch(url, {
     method: method || (body ? "POST" : "GET"),
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
