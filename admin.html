@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — Musik Generator</title>
+<style>
+  :root{--bg:#0b0b14;--card:#171726;--card2:#1f1f33;--text:#f2f2f7;--muted:#a5a5c0;--violet:#8b5cf6;--cyan:#22d3ee;--green:#22c55e;--red:#ef4444}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:860px;margin:0 auto;padding:16px}
+  .card{background:var(--card);border:1px solid #2a2a44;border-radius:16px;padding:16px;margin-bottom:16px}
+  h1{font-size:20px}
+  h2{font-size:16px;margin:0 0 10px}
+  input{width:100%;background:#0f0f1e;color:var(--text);border:1px solid #3a3a5c;border-radius:10px;padding:11px;font-size:15px}
+  label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+  button{border:0;border-radius:12px;padding:12px;font-size:15px;font-weight:600;cursor:pointer;width:100%}
+  .btn-violet{background:var(--violet);color:#fff}
+  .btn-gray{background:#2a2a44;color:var(--text)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{border-bottom:1px solid #2a2a44;padding:8px 6px;text-align:left;vertical-align:top}
+  .muted{color:var(--muted);font-size:13px}
+  .stat{font-size:26px;font-weight:700}
+  .row{display:flex;gap:10px}
+  .row>*{flex:1}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎵 Admin — Musik Generator</h1>
+
+  <div class="card" id="loginCard">
+    <h2>Masuk Admin</h2>
+    <label>Kunci admin (ADMIN_KEY dari dashboard Vercel)</label>
+    <input id="admKey" type="password" placeholder="••••••">
+    <div style="height:12px"></div>
+    <button class="btn-violet" id="admLogin">Masuk</button>
+    <p class="muted" id="loginMsg"></p>
+  </div>
+
+  <div id="panel" class="hidden">
+    <div class="card">
+      <h2>Statistik</h2>
+      <div class="row" id="stats"></div>
+      <div style="height:12px"></div>
+      <button class="btn-gray" id="refreshBtn">Muat Ulang</button>
+      <button class="btn-gray" id="logoutBtn" style="margin-top:8px">Keluar</button>
+    </div>
+
+    <div class="card">
+      <h2>Atur Kredit Manual</h2>
+      <label>Email user</label>
+      <input id="adjEmail" type="email" placeholder="user@email.com">
+      <label>Jumlah (+ tambah / − kurangi)</label>
+      <input id="adjDelta" type="number" placeholder="mis. 10 atau -5">
+      <div style="height:12px"></div>
+      <button class="btn-violet" id="adjBtn">Terapkan</button>
+      <p class="muted" id="adjMsg"></p>
+    </div>
+
+    <div class="card">
+      <h2>Pesanan Kredit Terakhir</h2>
+      <div style="overflow:auto"><table id="ordersTbl"></table></div>
+    </div>
+
+    <div class="card">
+      <h2>Lagu Terakhir</h2>
+      <div style="overflow:auto"><table id="genTbl"></table></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtRp = n => "Rp" + Number(n).toLocaleString("id-ID");
+async function api(action, body, method) {
+  const r = await fetch("/api?action=" + action, {
+    method: method || (body ? "POST" : "GET"),
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
+  return d;
+}
+async function loadAll() {
+  const st = await api("admin-stats");
+  $("stats").innerHTML =
+    `<div><div class="stat">${st.users.total}</div><span class="muted">user<br>${st.users.credits_in_wallets} kredit beredar</span></div>` +
+    `<div><div class="stat">${fmtRp(st.orders.revenue)}</div><span class="muted">pendapatan<br>${st.orders.paid}/${st.orders.total} pesanan lunas</span></div>` +
+    `<div><div class="stat">${st.generations.done}</div><span class="muted">lagu jadi<br>${st.generations.generating} diproses, ${st.generations.failed} gagal</span></div>`;
+  const o = await api("admin-orders");
+  $("ordersTbl").innerHTML = "<tr><th>ID</th><th>User</th><th>Paket</th><th>Nominal</th><th>Status</th><th>Waktu</th></tr>" +
+    o.orders.map(x => `<tr><td>${esc(x.id)}</td><td>${esc(x.user_email || x.user_id)}</td><td>${esc(x.pack)} (${x.credits})</td><td>${fmtRp(x.amount)}</td><td>${esc(x.status)}</td><td>${esc(new Date(x.created_at).toLocaleString("id-ID"))}</td></tr>`).join("");
+  const g = await api("admin-generations");
+  $("genTbl").innerHTML = "<tr><th>User</th><th>Judul</th><th>Model</th><th>Status</th><th>Waktu</th></tr>" +
+    g.generations.map(x => `<tr><td>${esc(x.user_email || x.user_id)}</td><td>${esc(x.title)}</td><td>${esc(x.model)}</td><td>${esc(x.status)}</td><td>${esc(new Date(x.created_at).toLocaleString("id-ID"))}</td></tr>`).join("");
+}
+$("admLogin").onclick = async () => {
+  try {
+    await api("admin-login", { key: $("admKey").value });
+    $("loginCard").classList.add("hidden");
+    $("panel").classList.remove("hidden");
+    await loadAll();
+  } catch (e) { $("loginMsg").textContent = e.message; }
+};
+$("refreshBtn").onclick = () => loadAll().catch(e => alert(e.message));
+$("logoutBtn").onclick = async () => {
+  await api("admin-logout", {}).catch(() => {});
+  location.reload();
+};
+$("adjBtn").onclick = async () => {
+  try {
+    const d = await api("admin-adjust", { email: $("adjEmail").value.trim(), delta: Number($("adjDelta").value) });
+    $("adjMsg").textContent = `Saldo ${d.email} sekarang ${d.balance} kredit.`;
+    await loadAll();
+  } catch (e) { $("adjMsg").textContent = e.message; }
+};
+</script>
+</body>
+</html>

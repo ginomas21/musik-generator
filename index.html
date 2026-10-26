@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Musik Generator — Buat Lagu dengan AI</title>
+<style>
+  :root{--bg:#0b0b14;--card:#171726;--card2:#1f1f33;--text:#f2f2f7;--muted:#a5a5c0;--violet:#8b5cf6;--cyan:#22d3ee;--green:#22c55e;--red:#ef4444;--orange:#f59e0b}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{position:sticky;top:0;background:#0b0b14ee;border-bottom:1px solid #2a2a44;padding:12px 16px;display:flex;align-items:center;gap:12px;z-index:5}
+  header h1{font-size:18px;margin:0;background:linear-gradient(90deg,var(--violet),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .spacer{flex:1}
+  .badge{background:var(--card2);border:1px solid #3a3a5c;padding:6px 12px;border-radius:999px;font-size:14px}
+  .wrap{max-width:720px;margin:0 auto;padding:16px}
+  .card{background:var(--card);border:1px solid #2a2a44;border-radius:16px;padding:16px;margin-bottom:16px}
+  h2{font-size:17px;margin:0 0 12px}
+  label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+  input,select,textarea{width:100%;background:#0f0f1e;color:var(--text);border:1px solid #3a3a5c;border-radius:10px;padding:11px;font-size:15px}
+  textarea{min-height:70px;resize:vertical}
+  .row{display:flex;gap:10px}
+  .row>*{flex:1}
+  button{border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;width:100%}
+  .btn-violet{background:linear-gradient(90deg,var(--violet),#6366f1);color:#fff}
+  .btn-green{background:var(--green);color:#fff}
+  .btn-gray{background:#2a2a44;color:var(--text)}
+  .btn-red{background:var(--red);color:#fff}
+  button:disabled{opacity:.55}
+  .muted{color:var(--muted);font-size:13px}
+  .warn{background:#3a2a10;border:1px solid var(--orange);color:#fcd34d;border-radius:10px;padding:10px;font-size:14px}
+  .ok{background:#0f2a1a;border:1px solid var(--green);color:#86efac;border-radius:10px;padding:10px;font-size:14px}
+  .song{border:1px solid #2a2a44;border-radius:12px;padding:12px;margin-bottom:10px;background:var(--card2)}
+  .song b{font-size:15px}
+  .song audio{width:100%;margin-top:8px}
+  .song a{color:var(--cyan)}
+  .pack{border:1px solid #3a3a5c;border-radius:12px;padding:14px;text-align:center;cursor:pointer;background:var(--card2)}
+  .pack b{font-size:18px}
+  .pack:hover{border-color:var(--violet)}
+  #qrModal{display:none;position:fixed;inset:0;background:#000b;z-index:20;align-items:flex-start;justify-content:center;padding:20px;overflow:auto}
+  #qrBox{background:var(--card);border-radius:16px;padding:20px;max-width:420px;width:100%;text-align:center}
+  #qrBox img{width:280px;height:280px;background:#fff;border-radius:12px}
+  .hidden{display:none!important}
+  .seg{display:flex;gap:8px}
+  .seg button{padding:10px}
+  .seg .on{background:var(--violet);color:#fff}
+  footer{color:var(--muted);font-size:12px;text-align:center;padding:20px}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎵 Musik Generator</h1>
+  <div class="spacer"></div>
+  <span class="badge" id="creditBadge">– kredit</span>
+  <button class="btn-gray" id="authBtn" style="width:auto;padding:8px 14px">Masuk</button>
+</header>
+
+<div class="wrap">
+  <div id="notice"></div>
+
+  <div class="card" id="authCard">
+    <h2 id="authTitle">Masuk</h2>
+    <label>Email</label>
+    <input id="email" type="email" placeholder="kamu@email.com" autocomplete="email">
+    <label>Kata sandi (minimal 6 karakter)</label>
+    <input id="pass" type="password" placeholder="••••••" autocomplete="current-password">
+    <div style="height:12px"></div>
+    <button class="btn-violet" id="authSubmit">Masuk</button>
+    <p class="muted" style="text-align:center"><a href="#" id="authToggle" style="color:var(--cyan)">Belum punya akun? Daftar</a></p>
+  </div>
+
+  <div class="card" id="genCard">
+    <h2>Buat Lagu</h2>
+    <label>Judul lagu (wajib di mode custom)</label>
+    <input id="judul" placeholder="Senja di Jakarta">
+    <label>Deskripsi lagu / ide (mode sederhana)</label>
+    <textarea id="prompt" placeholder="Lagu pop ceria tentang pagi hari, semangat dan ringan"></textarea>
+    <label>Lirik (mode custom, opsional)</label>
+    <textarea id="lirik" placeholder="Tulis lirik di sini, satu baris satu kalimat..."></textarea>
+    <label>Gaya musik</label>
+    <input id="gaya" placeholder="mis. pop ceria, lo-fi santai, dangdut koplo">
+    <label>Mode</label>
+    <div class="seg">
+      <button class="btn-gray on" id="modeSederhana">Sederhana</button>
+      <button class="btn-gray" id="modeCustom">Custom</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div>
+        <label>Model Suno</label>
+        <select id="model">
+          <option value="V6">V6 (disarankan)</option>
+          <option value="V6_MINI">V6 Mini (cepat)</option>
+          <option value="V6_WILD">V6 Wild (eksperimental)</option>
+        </select>
+      </div>
+      <div>
+        <label>Instrumental (tanpa vokal)</label>
+        <select id="instrumen">
+          <option value="0">Tidak</option>
+          <option value="1">Ya</option>
+        </select>
+      </div>
+    </div>
+    <div style="height:14px"></div>
+    <button class="btn-green" id="buatBtn">🎵 BUAT LAGU (1 kredit)</button>
+    <p class="muted" id="genStatus">Siap. Isi deskripsi lalu tekan Buat Lagu.</p>
+    <div id="hasil"></div>
+  </div>
+
+  <div class="card">
+    <h2>💳 Beli Kredit</h2>
+    <p class="muted">1 kredit = 1 lagu, model apa pun. Bayar QRIS (15 menit).</p>
+    <div class="row" id="packList"></div>
+  </div>
+
+  <div class="card">
+    <h2>🎧 Riwayat Laguku</h2>
+    <div id="riwayat"><p class="muted">Masuk dulu untuk melihat riwayat.</p></div>
+  </div>
+
+  <footer>
+    Musik Generator — lagu dibuat dengan AI (Suno via kie.ai). File lagu di server kie.ai hanya tersimpan 14 hari, segera unduh setelah jadi.
+    <br><a href="/admin">Halaman Admin</a>
+  </footer>
+</div>
+
+<div id="qrModal"><div id="qrBox">
+  <h2 style="margin-top:0">Bayar dengan QRIS</h2>
+  <p id="qrInfo"></p>
+  <img id="qrImg" alt="QRIS">
+  <p class="muted" id="qrTimer"></p>
+  <p id="qrStatus" class="muted">Menunggu pembayaran…</p>
+  <p><a id="qrLink" href="#" target="_blank" style="color:var(--cyan)">Buka link bayar</a></p>
+  <button class="btn-red" id="qrCancel">Batalkan</button>
+</div></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let mode = "sederhana", me = null, genPoll = null, buyPoll = null, buyOrder = null, buyLeft = 0, buyTimer = null;
+
+function notice(html, cls) {
+  $("notice").innerHTML = html ? `<div class="${cls||"warn"}">${html}</div>` : "";
+}
+async function api(action, body, method) {
+  const r = await fetch("/api?action=" + action, {
+    method: method || (body ? "POST" : "GET"),
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
+  return d;
+}
+function fmtRp(n) { return "Rp" + Number(n).toLocaleString("id-ID"); }
+function songHtml(g) {
+  let h = `<div class="song"><b>${esc(g.title)}</b> <span class="muted">· ${g.model} · ${g.mode}${g.instrumental ? " · instrumental" : ""} · ${g.status}</span>`;
+  if (g.status === "done") {
+    g.audio_urls.forEach((u, i) => {
+      h += `<p style="margin:10px 0 2px">Versi ${i + 1}</p><audio controls preload="none" src="${esc(u)}"></audio><br><a href="${esc(u)}" target="_blank" download>⬇ Unduh versi ${i + 1}</a>`;
+    });
+  } else if (g.status === "failed") {
+    h += `<p class="muted">Gagal dibuat — 1 kredit dikembalikan. ${esc(g.error || "")}</p>`;
+  } else {
+    h += `<p class="muted">Masih dibuat… halaman ini memeriksa otomatis.</p>`;
+  }
+  return h + "</div>";
+}
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+async function refreshMe() {
+  try {
+    const d = await api("me");
+    me = d.user;
+    $("creditBadge").textContent = me.credits + " kredit";
+    $("authCard").classList.add("hidden");
+    $("authBtn").textContent = "Keluar";
+  } catch {
+    me = null;
+    $("creditBadge").textContent = "– kredit";
+    $("authCard").classList.remove("hidden");
+    $("authBtn").textContent = "Masuk";
+  }
+}
+async function refreshPacks() {
+  try {
+    const d = await api("packs");
+    $("packList").innerHTML = d.packs.map(p =>
+      `<div class="pack" data-pack="${p.id}"><b>${p.credits} kredit</b><br><span style="font-size:18px">${fmtRp(p.price)}</span><br><span class="muted">${fmtRp(Math.round(p.price / p.credits))}/lagu</span></div>`).join("");
+    document.querySelectorAll(".pack").forEach(el => el.onclick = () => beli(el.dataset.pack));
+    if (!d.payment_active) notice("Pembayaran QRIS belum aktif (admin belum menyiapkan kunci pembayaran). Pembuatan lagu tetap bisa jalan kalau mesin sudah aktif.");
+    else if (!d.kie_active) notice("Mesin musik belum aktif (admin belum menyiapkan kunci kie.ai).");
+    else notice("");
+  } catch (e) { notice("Gagal memuat paket: " + e.message); }
+}
+async function refreshRiwayat() {
+  if (!me) { $("riwayat").innerHTML = "<p class='muted'>Masuk dulu untuk melihat riwayat.</p>"; return; }
+  try {
+    const d = await api("generations");
+    $("riwayat").innerHTML = d.generations.length ? d.generations.map(songHtml).join("") : "<p class='muted'>Belum ada lagu. Buat lagu pertamamu di atas!</p>";
+  } catch (e) { $("riwayat").innerHTML = "<p class='muted'>Gagal memuat riwayat: " + esc(e.message) + "</p>"; }
+}
+function setMode(m) {
+  mode = m;
+  $("modeSederhana").className = "btn-gray" + (m === "sederhana" ? " on" : "");
+  $("modeCustom").className = "btn-gray" + (m === "custom" ? " on" : "");
+}
+$("modeSederhana").onclick = () => setMode("sederhana");
+$("modeCustom").onclick = () => setMode("custom");
+
+let authMode = "login";
+$("authToggle").onclick = e => {
+  e.preventDefault();
+  authMode = authMode === "login" ? "register" : "login";
+  $("authTitle").textContent = authMode === "login" ? "Masuk" : "Daftar";
+  $("authSubmit").textContent = authMode === "login" ? "Masuk" : "Daftar";
+  $("authToggle").textContent = authMode === "login" ? "Belum punya akun? Daftar" : "Sudah punya akun? Masuk";
+};
+$("authSubmit").onclick = async () => {
+  const btn = $("authSubmit");
+  btn.disabled = true;
+  try {
+    const d = await api(authMode, { email: $("email").value.trim(), password: $("pass").value });
+    me = d.user;
+    notice(`Halo, ${esc(me.email)}! Saldo: ${me.credits} kredit.`, "ok");
+    await refreshMe(); await refreshRiwayat();
+  } catch (e) { notice(e.message); }
+  btn.disabled = false;
+};
+$("authBtn").onclick = async () => {
+  if (me) {
+    await api("logout", {}).catch(() => {});
+    await refreshMe(); await refreshRiwayat();
+    $("authCard").classList.remove("hidden");
+  } else {
+    $("authCard").classList.remove("hidden");
+    $("authCard").scrollIntoView({ behavior: "smooth" });
+  }
+};
+
+$("buatBtn").onclick = async () => {
+  if (!me) { notice("Masuk dulu sebelum membuat lagu."); $("authCard").scrollIntoView({ behavior: "smooth" }); return; }
+  const btn = $("buatBtn");
+  btn.disabled = true;
+  $("genStatus").textContent = "Mengirim tugas ke mesin musik…";
+  try {
+    const d = await api("generate", {
+      title: $("judul").value, prompt: $("prompt").value, lyrics: $("lirik").value,
+      style: $("gaya").value, mode, instrumental: $("instrumen").value === "1", model: $("model").value,
+    });
+    $("genStatus").textContent = "Tugas diterima, menunggu lagu jadi… (biasanya 1–3 menit)";
+    $("hasil").innerHTML = songHtml(d.generation);
+    await refreshMe();
+    const gid = d.generation.id;
+    clearInterval(genPoll);
+    genPoll = setInterval(async () => {
+      try {
+        const s = await api("gen-status?id=" + encodeURIComponent(gid));
+        $("hasil").innerHTML = songHtml(s.generation);
+        if (s.generation.status === "done") {
+          clearInterval(genPoll);
+          $("genStatus").textContent = "Lagu jadi! Putar atau unduh di atas (unduh segera, file hanya 14 hari).";
+          await refreshMe(); await refreshRiwayat();
+        } else if (s.generation.status === "failed") {
+          clearInterval(genPoll);
+          $("genStatus").textContent = "Gagal dibuat, 1 kredit dikembalikan.";
+          await refreshMe(); await refreshRiwayat();
+        } else {
+          $("genStatus").textContent = "Status mesin: " + (s.kie_state || s.generation.status) + "…";
+        }
+      } catch (e) { clearInterval(genPoll); $("genStatus").textContent = "Gagal memeriksa status: " + e.message; }
+    }, 10000);
+  } catch (e) {
+    $("genStatus").textContent = e.message;
+  }
+  btn.disabled = false;
+};
+
+async function beli(packId) {
+  if (!me) { notice("Masuk dulu sebelum membeli kredit."); $("authCard").scrollIntoView({ behavior: "smooth" }); return; }
+  try {
+    const d = await api("buy", { pack: packId });
+    buyOrder = d.order_id;
+    $("qrInfo").textContent = `${d.credits} kredit — ${fmtRp(d.total)}`;
+    $("qrImg").src = d.qris_image || "";
+    $("qrLink").href = d.payment_url || "#";
+    $("qrStatus").textContent = "Menunggu pembayaran…";
+    $("qrModal").style.display = "flex";
+    buyLeft = Math.floor(d.timeout_ms / 1000);
+    clearInterval(buyTimer);
+    buyTimer = setInterval(() => {
+      buyLeft--;
+      const m = String(Math.floor(buyLeft / 60)).padStart(2, "0"), s = String(buyLeft % 60).padStart(2, "0");
+      $("qrTimer").textContent = "Berlaku " + m + ":" + s;
+      if (buyLeft <= 0) { clearInterval(buyTimer); clearInterval(buyPoll); $("qrStatus").textContent = "QRIS kedaluwarsa."; }
+    }, 1000);
+    clearInterval(buyPoll);
+    buyPoll = setInterval(async () => {
+      try {
+        const s = await api("buy-status?order_id=" + encodeURIComponent(buyOrder));
+        if (s.status === "paid") {
+          clearInterval(buyPoll); clearInterval(buyTimer);
+          $("qrStatus").textContent = "Pembayaran lunas! " + s.balance + " kredit sekarang.";
+          await refreshMe();
+          setTimeout(() => { $("qrModal").style.display = "none"; }, 2000);
+        } else if (s.status !== "pending") {
+          clearInterval(buyPoll); clearInterval(buyTimer);
+          $("qrStatus").textContent = "Pesanan " + s.status + ".";
+        }
+      } catch (e) { /* tunggu polling berikutnya */ }
+    }, 5000);
+  } catch (e) { notice(e.message); }
+}
+$("qrCancel").onclick = async () => {
+  clearInterval(buyPoll); clearInterval(buyTimer);
+  if (buyOrder) await api("buy-cancel", { order_id: buyOrder }).catch(() => {});
+  $("qrModal").style.display = "none";
+};
+
+refreshPacks();
+refreshMe().then(refreshRiwayat);
+</script>
+</body>
+</html>
